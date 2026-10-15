@@ -129,6 +129,11 @@
   td.c{text-align:center}
   .del{border:0;background:transparent;font-size:18px;color:var(--muted);cursor:pointer;padding:5px 8px;line-height:1}
   .hotbox{width:19px;height:19px;accent-color:var(--hot)}
+  .bingoBanner{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:101;pointer-events:none;
+    background:var(--blue);color:var(--onblue);font-weight:700;font-size:28px;padding:14px 28px;border-radius:16px;
+    box-shadow:0 8px 30px rgba(0,0,0,.3);animation:bingoPop 2.6s ease forwards;text-align:center}
+  @keyframes bingoPop{0%{opacity:0;transform:translateX(-50%) scale(.6)}12%{opacity:1;transform:translateX(-50%) scale(1.08)}
+    20%{transform:translateX(-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
   .mcard{margin-bottom:9px}
   .mcard .fld:last-of-type{margin-bottom:9px}
 
@@ -260,7 +265,7 @@ var SQ = [
 var TOPICS = ["","AAV / vector","LNP","Bioproduction","SPD / payload","PDC / radioligand","Receptor discovery","CAR-T","Other"];
 var KEY = "wlg_passport_v1";
 
-var state = {meta:{}, sq:{}, contacts:[], meetings:[], sent:{}, auto:false};
+var state = {meta:{}, sq:{}, contacts:[], meetings:[], sent:{}, auto:false, cel:{}};
 var grid=document.getElementById("grid"), list=document.getElementById("list"),
     cbody=document.getElementById("cbody"), sheet=document.getElementById("sheet"),
     scrim=document.getElementById("scrim"), dump=document.getElementById("dump"),
@@ -283,7 +288,7 @@ function save(){
 }
 function load(){ try{ var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r);
   if(p&&typeof p==="object"){state.meta=p.meta||{};state.sq=p.sq||{};state.contacts=p.contacts||[];state.meetings=p.meetings||[];
-    state.sent=p.sent||{};state.auto=!!p.auto;}} }catch(e){} }
+    state.sent=p.sent||{};state.auto=!!p.auto;state.cel=p.cel||{};}} }catch(e){} }
 
 function buildItems(){
   ensureIds(); var items=[];
@@ -406,6 +411,42 @@ grid.addEventListener("click",function(e){var c=e.target.closest(".cell"); if(c)
 list.addEventListener("click",function(e){var c=e.target.closest(".row"); if(c) openSheet(+c.dataset.i);});
 scrim.addEventListener("click",closeSheet);
 document.getElementById("sClose").addEventListener("click",closeSheet);
+var LINES=(function(){ var L=[], i, j, a;
+  for(i=0;i<5;i++){ a=[]; for(j=0;j<5;j++) a.push(i*5+j); L.push({id:"r"+i,c:a}); }
+  for(j=0;j<5;j++){ a=[]; for(i=0;i<5;i++) a.push(i*5+j); L.push({id:"c"+j,c:a}); }
+  L.push({id:"d1",c:[0,6,12,18,24]}); L.push({id:"d2",c:[4,8,12,16,20]});
+  return L; })();
+function checkBingo(){
+  var fresh=[], total=0, i;
+  LINES.forEach(function(l){
+    if(l.c.every(function(k){ return state.sq[k]&&state.sq[k].done; }) && !state.cel[l.id]){ state.cel[l.id]=1; fresh.push(l.id); }
+  });
+  for(i=0;i<25;i++){ if(state.sq[i]&&state.sq[i].done) total++; }
+  var full=(total===25 && !state.cel.full);
+  if(full){ state.cel.full=1; }
+  if(!fresh.length && !full) return;
+  save();
+  celebrate(full ? "Full card!" : (fresh.length>1 ? "Double bingo!" : "Bingo!"), full);
+}
+function celebrate(msg,big){
+  Array.prototype.forEach.call(document.querySelectorAll(".bingoBanner,canvas.confetti"),function(n){ n.parentNode.removeChild(n); });
+  var b=document.createElement("div"); b.className="bingoBanner"; b.textContent=msg; document.body.appendChild(b);
+  setTimeout(function(){ if(b.parentNode) b.parentNode.removeChild(b); },2700);
+  if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var cv=document.createElement("canvas"); cv.className="confetti"; cv.style.cssText="position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:100";
+  var W=cv.width=window.innerWidth, H=cv.height=window.innerHeight; document.body.appendChild(cv);
+  var ctx=cv.getContext("2d"), cols=["#5374CF","#99E2BF","#FFBAA4","#e06a45","#f5d547","#ffffff"], n=big?260:110, ps=[], k;
+  for(k=0;k<n;k++){ ps.push({x:W/2+(Math.random()-.5)*W*.3,y:H*.35,vx:(Math.random()-.5)*(big?16:11),vy:-Math.random()*(big?15:11)-3,
+    s:5+Math.random()*6,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:cols[k%cols.length]}); }
+  var t0=Date.now();
+  (function frame(){
+    var el=Date.now()-t0; ctx.clearRect(0,0,W,H);
+    ps.forEach(function(p){ p.vy+=.35; p.x+=p.vx; p.y+=p.vy; p.vx*=.992; p.r+=p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.globalAlpha=Math.max(0,1-el/2600);
+      ctx.fillStyle=p.c; ctx.fillRect(-p.s/2,-p.s/3,p.s,p.s*.66); ctx.restore(); });
+    if(el<2700) requestAnimationFrame(frame); else if(cv.parentNode) cv.parentNode.removeChild(cv);
+  })();
+}
 document.getElementById("sTick").addEventListener("click",function(){
   if(open<0) return; var r=rec(open), s=SQ[open], warn=document.getElementById("sWarn");
   if(!r.done && s.cb && s.cb.length){
@@ -413,7 +454,7 @@ document.getElementById("sTick").addEventListener("click",function(){
     if(!allChecked){ warn.textContent="Please confirm: "+s.cb.join(", "); warn.hidden=false; return; }
   }
   warn.hidden=true;
-  r.done=!r.done; save(); paint(); closeSheet(); });
+  r.done=!r.done; save(); paint(); closeSheet(); if(r.done) checkBingo(); });
 document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&!sheet.hidden) closeSheet(); });
 
 function drawMeetings(){
@@ -555,7 +596,7 @@ document.getElementById("clear").addEventListener("click",function(){
     return;
   }
   clearTimeout(clearArmTimer); clearArmed=false; btn.textContent="Clear card";
-  state={meta:{},sq:{},contacts:[{name:"",company:"",role:"",topic:"",said:""}],meetings:[],sent:{},auto:false};
+  state={meta:{},sq:{},contacts:[{name:"",company:"",role:"",topic:"",said:""}],meetings:[],sent:{},auto:false,cel:{}};
   try{ localStorage.removeItem(KEY); }catch(e){}
   Array.prototype.forEach.call(document.querySelectorAll("[data-meta]"),function(el){el.value="";});
   dump.hidden=true; drawContacts(); drawMeetings(); paint(); updateSendNote();
