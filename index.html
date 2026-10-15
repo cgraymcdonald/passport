@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#5374CF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Passport">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Conference Passport</title>
+<style>
+  :root{
+    --ground:#F4F3F0; --paper:#ffffff; --ink:#0b0d10; --muted:#5b636e; --line:#dfe2e7;
+    --blue:#5374CF; --dblue:#2A50B8; --onblue:#ffffff;
+    --done:#99E2BF; --doneline:#6fc79b; --donerow:#eefaf3; --doneink:#0b3a25;
+    --coral:#FFBAA4; --coralline:#f0a58c;
+    --hot:#e06a45; --shadow:0 1px 2px rgba(16,20,28,.05);
+    --r:11px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#131519; --paper:#1c1f26; --ink:#eceff3; --muted:#98a1ad; --line:#2c323b;
+      --blue:#7d96e2; --dblue:#5374CF; --onblue:#0b0d10;
+      --done:#2f6b4d; --doneline:#3f8a65; --donerow:#1a2620; --doneink:#d6f2e3;
+      --coral:#7d4636; --coralline:#a05c46;
+      --hot:#f08a68; --shadow:0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#131519; --paper:#1c1f26; --ink:#eceff3; --muted:#98a1ad; --line:#2c323b;
+    --blue:#7d96e2; --dblue:#5374CF; --onblue:#0b0d10;
+    --done:#2f6b4d; --doneline:#3f8a65; --donerow:#1a2620; --doneink:#d6f2e3;
+    --coral:#7d4636; --coralline:#a05c46;
+    --hot:#f08a68; --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:"Schibsted Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    font-size:16px; line-height:1.45;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding-inline:16px;padding-block:18px 40px}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+
+  header{padding:17px;margin-bottom:14px}
+  h1{font-size:20px;margin:0 0 3px;letter-spacing:-.015em;font-weight:700;text-wrap:balance}
+  .sub{font-size:13.5px;color:var(--muted);margin:0 0 15px;max-width:60ch}
+  .ids{display:grid;grid-template-columns:1fr;gap:9px}
+  @media(min-width:580px){.ids{grid-template-columns:1.4fr 1fr .8fr}}
+  label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px;font-weight:600}
+  input[type=text],textarea,select{
+    width:100%;font:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);
+    border-radius:8px;background:var(--paper);color:var(--ink)
+  }
+  textarea{resize:vertical;min-height:64px}
+  input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible{
+    outline:2px solid var(--blue);outline-offset:1px}
+
+  .statusbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 15px;margin-bottom:14px}
+  .count{font-size:23px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .countlbl{font-size:11.5px;color:var(--muted)}
+  .bar{flex:1 1 130px;height:7px;background:var(--line);border-radius:99px;overflow:hidden;min-width:100px}
+  .bar i{display:block;height:100%;background:var(--blue);width:0;transition:width .25s}
+  .pill{font-size:12px;font-weight:700;padding:5px 10px;border-radius:99px;background:var(--line);color:var(--muted)}
+  .pill.on{background:var(--done);color:var(--doneink)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:13px;font-weight:600;padding:7px 15px;border:0;background:var(--paper);cursor:pointer;color:var(--muted)}
+  .seg button.on{background:var(--blue);color:var(--onblue)}
+
+  h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:24px 0 9px;font-weight:700}
+
+  #grid[hidden],#list[hidden]{display:none}
+  #grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+  .cell{position:relative;aspect-ratio:1/1;background:var(--paper);border:1px solid var(--line);border-radius:8px;
+    padding:5px 4px;font:inherit;font-size:9px;line-height:1.16;font-weight:600;text-align:center;cursor:pointer;
+    color:var(--ink);display:flex;align-items:center;justify-content:center;overflow:hidden;
+    hyphens:none;word-break:normal;overflow-wrap:break-word}
+  @media(min-width:580px){#grid{gap:8px}.cell{font-size:12px;padding:9px 7px;border-radius:9px}}
+  .cell.done{background:var(--done);border-color:var(--doneline);color:var(--doneink)}
+  .cell.centre{background:var(--blue);color:var(--onblue);border-color:var(--dblue)}
+  .cell.centre.done{background:var(--dblue)}
+  .cell .tk{position:absolute;top:2px;right:4px;font-size:10px;font-weight:700;opacity:0}
+  .cell.done .tk{opacity:1}
+  .cell .dot{position:absolute;bottom:3px;left:0;right:0;font-size:7px;opacity:0;color:var(--dblue)}
+  .cell.hasnote .dot{opacity:1}
+  .cell.done.hasnote .dot{color:var(--doneink)}
+
+  #list{display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;align-items:flex-start;gap:12px;background:var(--paper);border:1px solid var(--line);
+    border-radius:9px;padding:12px 13px;cursor:pointer;text-align:left;font:inherit;color:var(--ink);width:100%}
+  .row.done{background:var(--donerow);border-color:var(--doneline)}
+  .row.centre{border-color:var(--blue);border-width:2px}
+  .box{flex:0 0 21px;height:21px;border:2px solid var(--muted);border-radius:5px;margin-top:1px;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:transparent}
+  .row.done .box{background:var(--doneline);border-color:var(--doneline);color:#fff}
+  .row .t{font-weight:600;font-size:15px}
+  .row .hint{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .row .n{font-size:13px;color:var(--dblue);margin-top:4px;white-space:pre-wrap;word-break:break-word}
+  .row.done .n{color:var(--doneink)}
+
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;background:var(--paper);color:var(--ink);
+    border-radius:16px 16px 0 0;padding:19px 17px calc(19px + env(safe-area-inset-bottom,0px));
+    max-height:86vh;overflow:auto;box-shadow:0 -6px 30px rgba(0,0,0,.28)}
+  @media(min-width:640px){.sheet{max-width:540px;margin:0 auto;border-radius:16px;bottom:auto;top:50%;transform:translateY(-50%)}}
+  .sheet h3{margin:0 0 4px;font-size:18px;text-wrap:balance}
+  .sheet .lead{font-size:13px;color:var(--muted);margin:0 0 16px}
+  .fld{margin-bottom:12px}
+  .fldcb{margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .fldcb input{width:19px;height:19px}
+  .sheetbtns{display:flex;gap:9px;margin-top:17px}
+  .sheetwarn{margin-top:10px;font-size:12.5px;color:var(--hot);font-weight:600}
+
+  button.b{font:inherit;font-size:15px;font-weight:600;padding:11px 16px;border-radius:9px;border:1px solid var(--line);
+    background:var(--paper);cursor:pointer;color:var(--ink)}
+  button.b.pri{background:var(--blue);border-color:var(--blue);color:var(--onblue);flex:1}
+  button.b.warn{background:var(--coral);border-color:var(--coralline);color:var(--ink)}
+
+  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--paper)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;
+    padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:700}
+  td{padding:4px 5px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td input,td select{border:1px solid transparent;background:transparent;padding:7px 6px;font-size:14px;min-width:94px}
+  td input:focus,td select:focus{background:var(--ground);border-color:var(--blue)}
+  td.c{text-align:center}
+  .del{border:0;background:transparent;font-size:18px;color:var(--muted);cursor:pointer;padding:5px 8px;line-height:1}
+  .hotbox{width:19px;height:19px;accent-color:var(--hot)}
+  .mcard{margin-bottom:9px}
+  .mcard .fld:last-of-type{margin-bottom:9px}
+
+  .panel{padding:15px}
+  .exp{display:flex;gap:9px;flex-wrap:wrap}
+  .exp button{flex:1 1 150px}
+  .note{font-size:12.5px;color:var(--muted);margin:12px 0 0;line-height:1.5}
+  .saved{font-size:12px;color:var(--doneline);font-weight:600;height:16px;margin-top:9px}
+  #dump{margin-top:11px;height:170px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+  footer{text-align:center;font-size:11px;color:var(--muted);padding:26px 0 6px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="card">
+  <h1>Conference Passport</h1>
+  <p class="sub">Tick what you catch. Add detail if you have it, skip it if you don't. Nothing here is required.</p>
+  <div class="ids">
+    <div><label for="who">Your name</label><input type="text" id="who" data-meta placeholder="Your name"></div>
+    <div><label for="conf">Conference</label><input type="text" id="conf" data-meta placeholder="TIDES Europe 2026"></div>
+    <div><label for="dates">Dates</label><input type="text" id="dates" data-meta placeholder="12-14 Nov"></div>
+  </div>
+</header>
+
+<div class="statusbar card">
+  <div><div class="count"><span id="n">0</span>/25</div><div class="countlbl">squares</div></div>
+  <div class="bar"><i id="fill"></i></div>
+  <div class="pill" id="bingo">No line yet</div>
+  <div class="seg">
+    <button id="vGrid" class="on" type="button">Grid</button>
+    <button id="vList" type="button">List</button>
+  </div>
+</div>
+
+<div id="grid"></div>
+<div id="list" hidden></div>
+
+<h2>People I met</h2>
+<div class="tw">
+  <table>
+    <thead><tr>
+      <th>Name</th><th>Company</th><th>Role</th><th>Topic</th><th>What they said</th><th></th>
+    </tr></thead>
+    <tbody id="cbody"></tbody>
+  </table>
+</div>
+<div style="margin-top:9px"><button class="b" id="addc" type="button">+ Add a person</button></div>
+
+<h2>Meeting notes</h2>
+<div id="meetingsWrap"></div>
+<div style="margin-top:9px"><button class="b" id="addm" type="button">+ Add a talk</button></div>
+
+<h2>Best thing I heard</h2>
+<div class="card panel">
+  <textarea id="best" data-meta placeholder="No structure, no tag. The thing you didn't expect."></textarea>
+</div>
+
+<h2>Export</h2>
+<div class="card panel">
+  <div class="exp">
+    <button class="b pri" id="send" type="button">Send to team</button>
+    <button class="b" id="resend" type="button">Resend everything</button>
+  </div>
+  <div class="note" id="sendNote" style="margin-bottom:12px"></div>
+  <div class="exp">
+    <button class="b" id="expAll" type="button">Download Excel (everything)</button>
+    <button class="b" id="expCon" type="button">Download Excel (contacts only)</button>
+  </div>
+  <div class="exp" style="margin-top:9px">
+    <button class="b" id="show" type="button">Show raw text</button>
+    <button class="b warn" id="clear" type="button">Clear card</button>
+  </div>
+  <textarea id="dump" readonly hidden></textarea>
+  <div class="saved" id="saved"></div>
+  <p class="note">Saves to this device as you go, so you can close the app and come back, even offline. "Send to team" only sends what is new since your last send, so you can use it every day. No connection? It keeps your items and sends them when you are back online.</p>
+</div>
+
+<footer>WhiteLab Genomics &middot; your answers stay on your device</footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sTitle">
+  <h3 id="sTitle"></h3>
+  <p class="lead" id="sLead"></p>
+  <div id="sFields"></div>
+  <div class="sheetbtns">
+    <button class="b pri" id="sTick" type="button">Tick it</button>
+    <button class="b" id="sClose" type="button">Close</button>
+  </div>
+  <div class="sheetwarn" id="sWarn" hidden></div>
+</div>
+
+<script src="config.js"></script>
+<script src="xlsx.full.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+var SQ = [
+ {t:"New CGT prospect spotted", h:"Someone worth BD following up", f:["Name","Company","Why they're interesting"]},
+ {t:"Wore the WLG gear", h:"", f:[]},
+ {t:"An AAV conversation", h:"Vector or capsid came up", f:["Who","Company","What they said"]},
+ {t:"Sat in a competitor's talk", h:"", f:["Speaker and company","One claim they made","One number they cited"]},
+ {t:"Heard how we're seen", h:"Anything said about WhiteLab or our data", f:["What they said","Who said it"]},
+ {t:"An LNP conversation", h:"", f:["Who","Company","What they said"]},
+ {t:"Heard a real objection", h:"Why someone wouldn't work with us. Their words.", f:["Quote","Who said it","Company"]},
+ {t:"Heard an “I wish someone could…”", h:"An unmet need, in their words", f:["Quote","Who said it","Company"]},
+ {t:"3 photos of us in action", h:"Send them to the Teams channel", f:[]},
+ {t:"Posted on LinkedIn", h:"Tag WhiteLab Genomics", f:["Post URL"]},
+ {t:"Snapped a competitor booth", h:"Booth, banner, swag or screen", f:["Which competitor"]},
+ {t:"Checked in with a partner", h:"", f:["Which partner","Where it stands"]},
+ {t:"Filled in my meeting notes", h:"The centre square. The one that matters.", f:[], cb:["I filled out my Notion post-meeting notes"], centre:true},
+ {t:"An expert weighed in on our platform", h:"", f:["Who","Their role or credential","What they said"]},
+ {t:"Someone already knew our content", h:"They referenced our posts or papers unprompted", f:["Who","What they referenced"]},
+ {t:"A bioproduction conversation", h:"", f:["Who","Company","What they said"]},
+ {t:"Sat in a potential partner's talk", h:"", f:["Speaker and company","One claim they made","One number they cited"]},
+ {t:"Pennylane done", h:"Do it on the train home", f:[]},
+ {t:"Talked CGT with an academic", h:"", f:["PI or group","Institution","What they work on"]},
+ {t:"Heard a competitor named", h:"A third party brought them up, not us", f:["Who named them","Which competitor","In what context"]},
+ {t:"Moved a live lead forward", h:"", f:["Which lead","What changed"]},
+ {t:"An SPD or payload conversation", h:"Promoter or payload design", f:["Who","Company","What they said"]},
+ {t:"Spotted someone we should hire", h:"Hire or SAB", f:["Name","Where they are now","Why them"]},
+ {t:"Grabbed competitor collateral", h:"Bring the paper back to BD", f:["Which competitor"]},
+ {t:"Worked out who really decides", h:"At a target account", f:["Name","Their role","Company","How you know"]}
+];
+var TOPICS = ["","AAV / vector","LNP","Bioproduction","SPD / payload","PDC / radioligand","Receptor discovery","CAR-T","Other"];
+var KEY = "wlg_passport_v1";
+
+var state = {meta:{}, sq:{}, contacts:[], meetings:[], sent:{}, auto:false};
+var grid=document.getElementById("grid"), list=document.getElementById("list"),
+    cbody=document.getElementById("cbody"), sheet=document.getElementById("sheet"),
+    scrim=document.getElementById("scrim"), dump=document.getElementById("dump"),
+    open=-1, tmr=null, dlApi=null;
+
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function flash(m){var s=document.getElementById("saved");s.textContent=m;clearTimeout(tmr);tmr=setTimeout(function(){s.textContent="";},1500);}
+function pad(n){ return (n<10?"0":"")+n; }
+function nowStamp(){ var d=new Date(), day=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+  return {day:day, ts:day+" "+pad(d.getHours())+":"+pad(d.getMinutes())}; }
+function uid(){ return "i"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function ensureIds(){
+  state.contacts.forEach(function(c){ if(!c.id) c.id=uid(); });
+  state.meetings.forEach(function(m){ if(!m.id) m.id=uid(); });
+}
+function save(){
+  ensureIds();
+  try{ localStorage.setItem(KEY,JSON.stringify(state)); flash("Saved"); }catch(e){}
+  updateSendNote();
+}
+function load(){ try{ var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r);
+  if(p&&typeof p==="object"){state.meta=p.meta||{};state.sq=p.sq||{};state.contacts=p.contacts||[];state.meetings=p.meetings||[];
+    state.sent=p.sent||{};state.auto=!!p.auto;}} }catch(e){} }
+
+function buildItems(){
+  ensureIds(); var items=[];
+  state.contacts.forEach(function(c){ if(!(c.name||c.company||c.role||c.said)) return;
+    items.push({type:"Contact",id:c.id,item:c.name||"",d1:c.company||"",d2:c.role||"",d3:c.topic||"",notes:c.said||""}); });
+  state.meetings.forEach(function(m){ if(!(m.title||m.speaker||m.notes)) return;
+    items.push({type:"Talk",id:m.id,item:m.title||"",d1:m.speaker||"",d2:"",d3:"",notes:m.notes||""}); });
+  for(var i=0;i<25;i++){ var r=state.sq[i]; if(!r) continue;
+    var parts=[];
+    (SQ[i].f||[]).forEach(function(f){ var v=(r.v||{})[f]; if(v&&String(v).trim()) parts.push(f+": "+String(v).trim()); });
+    (SQ[i].cb||[]).forEach(function(f){ if((r.v||{})[f]) parts.push(f+": Yes"); });
+    if(!r.done&&!parts.length) continue;
+    items.push({type:"Bingo",id:"sq"+i,item:SQ[i].t,d1:r.done?"Ticked":"Not ticked",d2:"",d3:"",notes:parts.join(" | ")}); }
+  var best=(state.meta.best||"").trim();
+  if(best) items.push({type:"Best",id:"best",item:"Best thing I heard",d1:"",d2:"",d3:"",notes:best});
+  items.forEach(function(it){ it.sig=JSON.stringify([it.item,it.d1,it.d2,it.d3,it.notes]); });
+  return items;
+}
+function pendingItems(all){ return buildItems().filter(function(it){ return all||state.sent[it.id]!==it.sig; }); }
+function setNote(t){ var el=document.getElementById("sendNote"); if(el) el.textContent=t; }
+function updateSendNote(){
+  if(!window.SEND_URL){ setNote("Sending to the team is not switched on yet. You can still download your Excel file."); return; }
+  var n=pendingItems(false).length;
+  setNote(n?(n+" item"+(n===1?"":"s")+" not sent yet."):"Everything is sent.");
+}
+var sending=false;
+async function sendNow(all){
+  if(sending) return;
+  if(!window.SEND_URL){ updateSendNote(); return; }
+  if(!(state.meta.who||"").trim()){ setNote("Add your name at the top first, then send."); return; }
+  var items=pendingItems(all);
+  if(!items.length){ setNote("Nothing new to send."); return; }
+  var st=nowStamp(), meta=state.meta, done=0;
+  var rows=items.map(function(it){ return {ts:st.ts,day:st.day,by:meta.who.trim(),conf:(meta.conf||"").trim(),
+    type:it.type,id:it.id,item:it.item,d1:it.d1,d2:it.d2,d3:it.d3,notes:it.notes}; });
+  sending=true; setNote("Sending "+rows.length+"...");
+  try{
+    for(var k=0;k<rows.length;k+=25){
+      await fetch(window.SEND_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},
+        body:JSON.stringify({rows:rows.slice(k,k+25)})});
+      items.slice(k,k+25).forEach(function(it){ state.sent[it.id]=it.sig; });
+      done=Math.min(k+25,rows.length);
+    }
+    state.auto=true; save();
+    setNote("Sent "+done+" item"+(done===1?"":"s")+" at "+st.ts.slice(11)+".");
+  }catch(e){
+    save();
+    setNote("No connection. Your items are kept and will send when you are back online.");
+  }
+  sending=false;
+}
+
+function rec(i){ if(!state.sq[i]) state.sq[i]={done:false,v:{}}; return state.sq[i]; }
+function noteOf(i){ var r=state.sq[i],o=[]; if(!r) return "";
+  (SQ[i].f||[]).forEach(function(f){var v=(r.v||{})[f]; if(v&&String(v).trim()) o.push(String(v).trim());});
+  return o.join(" · "); }
+function on(i){ var r=state.sq[i]; return !!(r&&r.done); }
+
+grid.innerHTML = SQ.map(function(s,i){
+  return '<button type="button" class="cell'+(s.centre?" centre":"")+'" data-i="'+i+'"><span class="tk">✓</span>'+
+         esc(s.t)+'<span class="dot">●</span></button>'; }).join("");
+list.innerHTML = SQ.map(function(s,i){
+  return '<button type="button" class="row'+(s.centre?" centre":"")+'" data-i="'+i+'"><span class="box">✓</span>'+
+    '<span style="flex:1;min-width:0"><span class="t" style="display:block">'+esc(s.t)+'</span>'+
+    (s.h?'<span class="hint" style="display:block">'+esc(s.h)+'</span>':'')+
+    '<span class="n" data-n="'+i+'" style="display:block"></span></span></button>'; }).join("");
+
+function countLines(){ var c=0,i,j,k;
+  for(i=0;i<5;i++){ for(j=0,k=0;j<5;j++) if(on(i*5+j)) k++; if(k===5) c++; }
+  for(j=0;j<5;j++){ for(i=0,k=0;i<5;i++) if(on(i*5+j)) k++; if(k===5) c++; }
+  for(i=0,k=0;i<5;i++) if(on(i*6)) k++; if(k===5) c++;
+  for(i=0,k=0;i<5;i++) if(on((i+1)*4)) k++; if(k===5) c++;
+  return c; }
+
+function paint(){
+  var n=0;
+  for(var i=0;i<25;i++){
+    var done=on(i), note=noteOf(i);
+    if(done) n++;
+    var c=grid.children[i]; c.classList.toggle("done",done); c.classList.toggle("hasnote",!!note);
+    var r=list.children[i]; r.classList.toggle("done",done);
+    var nd=r.querySelector("[data-n]"); nd.textContent=note; nd.hidden=!note;
+  }
+  document.getElementById("n").textContent=n;
+  document.getElementById("fill").style.width=(n/25*100)+"%";
+  var L=countLines(), b=document.getElementById("bingo");
+  if(n===25){ b.textContent="Full card"; b.className="pill on"; }
+  else if(L>0){ b.textContent=L+(L===1?" line":" lines"); b.className="pill on"; }
+  else { b.textContent="No line yet"; b.className="pill"; }
+}
+
+function openSheet(i){
+  open=i; var s=SQ[i], r=rec(i);
+  document.getElementById("sTitle").textContent=s.t;
+  var lead=document.getElementById("sLead"); lead.textContent=s.h||""; lead.hidden=!s.h;
+  document.getElementById("sFields").innerHTML=(s.f||[]).map(function(f){
+    var big=/quote|said|why|context|changed|work on|referenced|where it stands/i.test(f);
+    var id="f_"+i+"_"+f.replace(/[^a-z0-9]+/gi,"_");
+    return '<div class="fld"><label for="'+id+'">'+esc(f)+'</label>'+
+      (big?'<textarea id="'+id+'" data-f="'+esc(f)+'"></textarea>'
+          :'<input type="text" id="'+id+'" data-f="'+esc(f)+'">')+'</div>'; }).join("")
+    +(s.cb||[]).map(function(f){
+      var id="cb_"+i+"_"+f.replace(/[^a-z0-9]+/gi,"_");
+      return '<div class="fldcb"><input type="checkbox" id="'+id+'" data-cb="'+esc(f)+'"><label for="'+id+'">'+esc(f)+'</label></div>'; }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#sFields [data-f]"),function(el){
+    el.value=(r.v||{})[el.getAttribute("data-f")]||"";
+    el.addEventListener("input",function(){ r.v=r.v||{}; r.v[el.getAttribute("data-f")]=el.value; save(); paint(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#sFields [data-cb]"),function(el){
+    el.checked=!!(r.v||{})[el.getAttribute("data-cb")];
+    el.addEventListener("change",function(){ r.v=r.v||{}; r.v[el.getAttribute("data-cb")]=el.checked; save(); paint(); });
+  });
+  document.getElementById("sTick").textContent = r.done ? "Untick it" : "Tick it";
+  document.getElementById("sWarn").hidden=true;
+  sheet.hidden=false; scrim.hidden=false;
+}
+function closeSheet(){ sheet.hidden=true; scrim.hidden=true; open=-1; }
+
+grid.addEventListener("click",function(e){var c=e.target.closest(".cell"); if(c) openSheet(+c.dataset.i);});
+list.addEventListener("click",function(e){var c=e.target.closest(".row"); if(c) openSheet(+c.dataset.i);});
+scrim.addEventListener("click",closeSheet);
+document.getElementById("sClose").addEventListener("click",closeSheet);
+document.getElementById("sTick").addEventListener("click",function(){
+  if(open<0) return; var r=rec(open), s=SQ[open], warn=document.getElementById("sWarn");
+  if(!r.done && s.cb && s.cb.length){
+    var allChecked=s.cb.every(function(f){ return !!(r.v||{})[f]; });
+    if(!allChecked){ warn.textContent="Please confirm: "+s.cb.join(", "); warn.hidden=false; return; }
+  }
+  warn.hidden=true;
+  r.done=!r.done; save(); paint(); closeSheet(); });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&!sheet.hidden) closeSheet(); });
+
+function drawMeetings(){
+  document.getElementById("meetingsWrap").innerHTML = state.meetings.map(function(m,i){
+    return '<div class="card panel mcard" data-r="'+i+'">'+
+      '<div class="fld"><label>Title of the talk</label><input type="text" data-mk="title" value="'+esc(m.title)+'" placeholder="Talk title"></div>'+
+      '<div class="fld"><label>Speaker</label><input type="text" data-mk="speaker" value="'+esc(m.speaker)+'" placeholder="Speaker name"></div>'+
+      '<div class="fld"><label>Notes</label><textarea data-mk="notes" placeholder="Notes">'+esc(m.notes)+'</textarea></div>'+
+      '<button class="b warn" type="button" data-mdel="1">Remove this talk</button>'+
+      '</div>';
+  }).join("");
+}
+var meetingsWrap=document.getElementById("meetingsWrap");
+meetingsWrap.addEventListener("input",function(e){
+  var el=e.target, card=el.closest("[data-r]"); if(!card||!el.dataset.mk) return;
+  var m=state.meetings[+card.dataset.r]; if(!m) return;
+  m[el.dataset.mk]=el.value; save();
+});
+meetingsWrap.addEventListener("click",function(e){
+  if(!e.target.hasAttribute("data-mdel")) return;
+  var card=e.target.closest("[data-r]"); if(!card) return;
+  state.meetings.splice(+card.dataset.r,1); drawMeetings(); save();
+});
+document.getElementById("addm").addEventListener("click",function(){
+  state.meetings.push({title:"",speaker:"",notes:""}); drawMeetings(); save();
+});
+
+function drawContacts(){
+  cbody.innerHTML = state.contacts.map(function(c,i){
+    return '<tr data-r="'+i+'">'+
+      '<td><input type="text" id="c'+i+'n" data-k="name" value="'+esc(c.name)+'" placeholder="Name"></td>'+
+      '<td><input type="text" id="c'+i+'co" data-k="company" value="'+esc(c.company)+'" placeholder="Company"></td>'+
+      '<td><input type="text" id="c'+i+'r" data-k="role" value="'+esc(c.role)+'" placeholder="Role"></td>'+
+      '<td><select id="c'+i+'t" data-k="topic">'+TOPICS.map(function(t){
+        return '<option value="'+esc(t)+'"'+(c.topic===t?" selected":"")+'>'+(t?esc(t):"—")+'</option>';}).join("")+'</select></td>'+
+      '<td><input type="text" id="c'+i+'s" data-k="said" value="'+esc(c.said)+'" placeholder="One line" style="min-width:150px"></td>'+
+      '<td class="c"><button class="del" type="button" aria-label="Remove row">×</button></td></tr>';
+  }).join("");
+}
+function sync(e){ var el=e.target, tr=el.closest("tr"); if(!tr||!el.dataset.k) return;
+  var c=state.contacts[+tr.dataset.r]; if(!c) return;
+  c[el.dataset.k]= el.type==="checkbox" ? el.checked : el.value; save(); }
+cbody.addEventListener("input",sync); cbody.addEventListener("change",sync);
+cbody.addEventListener("click",function(e){
+  if(!e.target.classList.contains("del")) return;
+  state.contacts.splice(+e.target.closest("tr").dataset.r,1);
+  if(!state.contacts.length) state.contacts.push({name:"",company:"",role:"",topic:"",said:""});
+  drawContacts(); save(); });
+
+document.getElementById("addc").addEventListener("click",function(){
+  state.contacts.push({name:"",company:"",role:"",topic:"",said:""}); drawContacts(); save(); });
+
+function q(v){ v=String(v==null?"":v); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function toCSV(rows){ return rows.map(function(r){return r.map(q).join(",");}).join("\r\n"); }
+function allRows(){
+  var m=state.meta, rows=[["Attendee","Conference","Dates","Section","Item","Field","Value"]];
+  function push(sec,item,f,v){ if(v!==""&&v!=null) rows.push([m.who||"",m.conf||"",m.dates||"",sec,item,f,v]); }
+  for(var i=0;i<25;i++){ var r=state.sq[i]; if(!r) continue;
+    if(r.done) push("Bingo",SQ[i].t,"Ticked","Yes");
+    (SQ[i].f||[]).forEach(function(f){var v=(r.v||{})[f]; if(v&&String(v).trim()) push("Bingo",SQ[i].t,f,String(v).trim());}); }
+  state.contacts.forEach(function(c,i){ if(!(c.name||c.company||c.said)) return; var n="Contact "+(i+1);
+    push("Contacts",n,"Name",c.name); push("Contacts",n,"Company",c.company); push("Contacts",n,"Role",c.role);
+    push("Contacts",n,"Topic",c.topic); push("Contacts",n,"What they said",c.said); });
+  state.meetings.forEach(function(mt,i){ if(!(mt.title||mt.speaker||mt.notes)) return; var n="Talk "+(i+1);
+    push("Meetings",n,"Title",mt.title); push("Meetings",n,"Speaker",mt.speaker); push("Meetings",n,"Notes",mt.notes); });
+  if(m.best&&m.best.trim()) push("Notes","Best thing I heard","Text",m.best.trim());
+  return rows;
+}
+function contactRows(){
+  var m=state.meta, rows=[["Name","Company","Role","Topic","What they said","Met by","Conference"]];
+  state.contacts.forEach(function(c){ if(!(c.name||c.company||c.said)) return;
+    rows.push([c.name,c.company,c.role,c.topic,c.said,m.who||"",m.conf||""]); });
+  return rows;
+}
+function meetingsAOA(){
+  var rows=[["Title of the talk","Speaker","Notes"]];
+  state.meetings.forEach(function(mt){ if(!(mt.title||mt.speaker||mt.notes)) return;
+    rows.push([mt.title||"",mt.speaker||"",mt.notes||""]); });
+  return rows;
+}
+function fname(base){ var m=state.meta;
+  return ("WLG_"+base+"_"+(m.conf||"conference")+"_"+(m.who||"me")).replace(/[^A-Za-z0-9_\-]+/g,"_").replace(/_+/g,"_")+".xlsx"; }
+function showDump(t){ dump.value=t; dump.hidden=false; dump.focus(); dump.select(); }
+
+function bingoAOA(){
+  var rows=[["Square","Ticked","Field","Value"]];
+  for(var i=0;i<25;i++){ var r=state.sq[i]; if(!r) continue;
+    var tick=r.done?"Yes":"No", any=false;
+    (SQ[i].f||[]).forEach(function(f){var v=(r.v||{})[f]; if(v&&String(v).trim()){ rows.push([SQ[i].t,tick,f,String(v).trim()]); any=true; }});
+    if(!any && r.done) rows.push([SQ[i].t,tick,"",""]);
+  }
+  return rows;
+}
+function notesAOA(){
+  var m=state.meta;
+  return [["Field","Value"],["Attendee",m.who||""],["Conference",m.conf||""],["Dates",m.dates||""],["Best thing I heard",m.best||""]];
+}
+
+async function grabDl(){
+  if(dlApi!==null) return dlApi;
+  try{ dlApi = (window.claude&&window.claude.use) ? await window.claude.use("downloads") : null; }
+  catch(e){ dlApi=null; }
+  return dlApi;
+}
+function buildWorkbook(sheets){
+  var wb=XLSX.utils.book_new();
+  sheets.forEach(function(s){ XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.aoa), s.name); });
+  return wb;
+}
+async function doSaveXLSX(sheets,base){
+  var buf=XLSX.write(buildWorkbook(sheets),{bookType:"xlsx",type:"array"});
+  var blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  var filename=fname(base);
+  var dl=await grabDl();
+  if(dl&&dl.save){
+    try{ await dl.save({filename:filename,data:blob}); flash("Downloaded"); return; }
+    catch(e){ /* viewer declined or unavailable: fall through to plain browser download */ }
+  }
+  var url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },1000);
+  flash("Downloaded");
+}
+document.getElementById("expAll").addEventListener("click",function(){
+  doSaveXLSX([{name:"Bingo",aoa:bingoAOA()},{name:"Contacts",aoa:contactRows()},{name:"Meeting Notes",aoa:meetingsAOA()},{name:"Notes",aoa:notesAOA()}],"Passport"); });
+document.getElementById("expCon").addEventListener("click",function(){
+  doSaveXLSX([{name:"Contacts",aoa:contactRows()}],"Contacts"); });
+document.getElementById("send").addEventListener("click",function(){ sendNow(false); });
+document.getElementById("resend").addEventListener("click",function(){ sendNow(true); });
+document.getElementById("show").addEventListener("click",function(){
+  if(!dump.hidden){ dump.hidden=true; } else { showDump(toCSV(allRows())); } });
+var clearArmed=false, clearArmTimer=null;
+document.getElementById("clear").addEventListener("click",function(){
+  var btn=this;
+  if(!clearArmed){
+    var n=window.SEND_URL?pendingItems(false).length:0;
+    clearArmed=true; btn.textContent=n?("Tap again: "+n+" not sent yet"):"Tap again to confirm";
+    clearArmTimer=setTimeout(function(){ clearArmed=false; btn.textContent="Clear card"; },4000);
+    return;
+  }
+  clearTimeout(clearArmTimer); clearArmed=false; btn.textContent="Clear card";
+  state={meta:{},sq:{},contacts:[{name:"",company:"",role:"",topic:"",said:""}],meetings:[],sent:{},auto:false};
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  Array.prototype.forEach.call(document.querySelectorAll("[data-meta]"),function(el){el.value="";});
+  dump.hidden=true; drawContacts(); drawMeetings(); paint(); updateSendNote();
+});
+
+var vG=document.getElementById("vGrid"), vL=document.getElementById("vList");
+vG.addEventListener("click",function(){ grid.hidden=false; list.hidden=true; vG.classList.add("on"); vL.classList.remove("on"); });
+vL.addEventListener("click",function(){ grid.hidden=true; list.hidden=false; vL.classList.add("on"); vG.classList.remove("on"); });
+
+load();
+Array.prototype.forEach.call(document.querySelectorAll("[data-meta]"),function(el){
+  el.value=state.meta[el.id]||"";
+  el.addEventListener("input",function(){ state.meta[el.id]=el.value; save(); }); });
+if(!state.contacts.length) state.contacts=[{name:"",company:"",role:"",topic:"",said:""}];
+drawContacts(); drawMeetings(); paint();
+updateSendNote();
+window.addEventListener("online",function(){ if(state.auto) sendNow(false); });
+if(state.auto&&navigator.onLine) setTimeout(function(){ sendNow(false); },1500);
+if("serviceWorker" in navigator){ window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
+})();
+</script>
+</body>
+</html>
