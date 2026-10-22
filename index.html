@@ -134,8 +134,6 @@
     box-shadow:0 8px 30px rgba(0,0,0,.3);animation:bingoPop 2.6s ease forwards;text-align:center}
   @keyframes bingoPop{0%{opacity:0;transform:translateX(-50%) scale(.6)}12%{opacity:1;transform:translateX(-50%) scale(1.08)}
     20%{transform:translateX(-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
-  label.remember{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13.5px;font-weight:400;color:var(--ink);margin:0}
-  label.remember input{width:18px;height:18px}
   .mcard{margin-bottom:9px}
   .mcard .fld:last-of-type{margin-bottom:9px}
 
@@ -199,15 +197,6 @@
 <h2>Export</h2>
 <div class="card panel">
   <div class="exp">
-    <div class="fld" style="width:100%;margin-bottom:6px"><label for="pw">Team password</label>
-      <input type="password" id="pw" autocomplete="current-password" placeholder="Ask Cam for the password"></div>
-    <label class="remember"><input type="checkbox" id="pwRemember" checked> Remember on this phone</label>
-  </div>
-  <div class="exp" style="margin-top:9px">
-    <button class="b pri" id="upload" type="button">Send Excel to WLG</button>
-  </div>
-  <div class="note" id="sendNote" style="margin-bottom:12px"></div>
-  <div class="exp">
     <button class="b" id="expAll" type="button">Download Excel (everything)</button>
     <button class="b" id="expCon" type="button">Download Excel (contacts only)</button>
   </div>
@@ -217,7 +206,7 @@
   </div>
   <textarea id="dump" readonly hidden></textarea>
   <div class="saved" id="saved"></div>
-  <p class="note">Saves to this device as you go, even offline. "Send Excel to WLG" uploads your whole card as one Excel file, with the date and time in its name. No connection? Tap it anyway and it sends once you are back online with the app open.</p>
+  <p class="note">Saves to this device as you go, even offline.</p>
 </div>
 
 <footer>WhiteLab Genomics &middot; your answers stay on your device</footer>
@@ -272,7 +261,7 @@ var SQ = [
 var TOPICS = ["","AAV / vector","LNP","Bioproduction","SPD / payload","PDC / radioligand","Receptor discovery","CAR-T","Other"];
 var KEY = "wlg_passport_v1";
 
-var state = {meta:{}, sq:{}, contacts:[], meetings:[], upSig:"", lastUp:"", wantUp:false, cel:{}};
+var state = {meta:{}, sq:{}, contacts:[], meetings:[], cel:{}};
 var grid=document.getElementById("grid"), list=document.getElementById("list"),
     cbody=document.getElementById("cbody"), sheet=document.getElementById("sheet"),
     scrim=document.getElementById("scrim"), dump=document.getElementById("dump"),
@@ -292,100 +281,12 @@ function ensureIds(){
 function save(){
   ensureIds();
   try{ localStorage.setItem(KEY,JSON.stringify(state)); flash("Saved"); }catch(e){}
-  updateSendNote();
 }
 function load(){ try{ var r=localStorage.getItem(KEY); if(r){var p=JSON.parse(r);
   if(p&&typeof p==="object"){state.meta=p.meta||{};state.sq=p.sq||{};state.contacts=p.contacts||[];state.meetings=p.meetings||[];
-    state.upSig=p.upSig||"";state.lastUp=p.lastUp||"";state.wantUp=!!p.wantUp;state.cel=p.cel||{};}} }catch(e){} }
+    state.cel=p.cel||{};}} }catch(e){} }
 
-/* ---- Upload to S3 (link stored encrypted in config.js as window.S3_UPLOAD_ENC) ---- */
-var PWKEY=KEY+"_pw", ENC_ITER=310000, XLSX_MIME="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-function dataSig(){ return JSON.stringify([state.meta,state.sq,state.contacts,state.meetings]); }
-function hasData(){ return Object.keys(state.sq).length>0 || state.meetings.some(function(m){ return m.title||m.speaker||m.notes; }) ||
-  state.contacts.some(function(c){ return c.name||c.company||c.role||c.said; }) || !!(state.meta.best||"").trim(); }
-function hasUnsent(){ return !!window.S3_UPLOAD_ENC && hasData() && state.upSig!==dataSig(); }
-function setNote(t){ var el=document.getElementById("sendNote"); if(el) el.textContent=t; }
-function updateSendNote(){
-  if(!window.S3_UPLOAD_ENC){ setNote("Sending to WLG is not switched on yet. You can still download your Excel file."); return; }
-  if(state.wantUp){ setNote("Waiting for a connection to send."); return; }
-  if(state.lastUp && state.upSig===dataSig()){ setNote("Last sent "+state.lastUp.slice(0,16)+". Nothing new since."); return; }
-  if(state.lastUp){ setNote("Last sent "+state.lastUp.slice(0,16)+". You have changes not sent yet."); return; }
-  setNote(hasData()?"Not sent yet.":"");
-}
-function storedPw(){ try{ return localStorage.getItem(PWKEY)||""; }catch(e){ return ""; } }
-function initPw(){ var el=document.getElementById("pw"); if(el && storedPw()) el.value=storedPw(); }
-function b64d(s){ var bin=atob(s), a=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a; }
-async function decryptTarget(pw){
-  var parts=String(window.S3_UPLOAD_ENC||"").trim().split(".");
-  if(parts.length!==4 || parts[0]!=="v1") throw new Error("format");
-  var base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
-  var key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64d(parts[1]),iterations:ENC_ITER,hash:"SHA-256"},
-    base,{name:"AES-GCM",length:256},false,["decrypt"]);
-  var pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(parts[2])},key,b64d(parts[3]));
-  return new TextDecoder().decode(pt);
-}
-function hexOf(buf){ return Array.prototype.map.call(new Uint8Array(buf),function(b){ return ("0"+b.toString(16)).slice(-2); }).join(""); }
-async function sha256hex(str){ return hexOf(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str))); }
-async function hmac(key,str){
-  var k=await crypto.subtle.importKey("raw",typeof key==="string"?new TextEncoder().encode(key):key,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
-  return crypto.subtle.sign("HMAC",k,new TextEncoder().encode(str));
-}
-// Upload with an AWS access key (Signature Version 4). Each upload gets its own object key, so nothing is overwritten.
-async function s3SignedPut(c,key,blob){
-  var region=c.region, url=c.endpoint ? c.endpoint.replace(/\/$/,"")+"/"+key : "https://"+c.bucket+".s3."+region+".amazonaws.com/"+key;
-  var u=new URL(url), amzDate=new Date().toISOString().replace(/[:-]|\.\d{3}/g,""), date=amzDate.slice(0,8);
-  var hd={"host":u.host,"x-amz-content-sha256":"UNSIGNED-PAYLOAD","x-amz-date":amzDate};
-  if(c.sessionToken) hd["x-amz-security-token"]=c.sessionToken;
-  var names=Object.keys(hd).sort(), signed=names.join(";");
-  var canon=["PUT",u.pathname,"",names.map(function(n){ return n+":"+hd[n]; }).join("\n")+"\n",signed,"UNSIGNED-PAYLOAD"].join("\n");
-  var scope=date+"/"+region+"/s3/aws4_request";
-  var sts=["AWS4-HMAC-SHA256",amzDate,scope,await sha256hex(canon)].join("\n");
-  var kS=await hmac(await hmac(await hmac(await hmac("AWS4"+c.secretAccessKey,date),region),"s3"),"aws4_request");
-  var headers={"Authorization":"AWS4-HMAC-SHA256 Credential="+c.accessKeyId+"/"+scope+", SignedHeaders="+signed+", Signature="+hexOf(await hmac(kS,sts)),
-    "x-amz-content-sha256":"UNSIGNED-PAYLOAD","x-amz-date":amzDate,"Content-Type":XLSX_MIME};
-  if(c.sessionToken) headers["x-amz-security-token"]=c.sessionToken;
-  return fetch(url,{method:"PUT",headers:headers,body:blob});
-}
-var uploading=false;
-async function uploadNow(){
-  if(uploading) return;
-  if(!window.S3_UPLOAD_ENC){ updateSendNote(); return; }
-  if(!(state.meta.who||"").trim()){ setNote("Add your name at the top first, then send."); return; }
-  var pwEl=document.getElementById("pw"), pw=(pwEl&&pwEl.value)||storedPw();
-  if(!pw){ setNote("Enter the team password first."); return; }
-  if(!navigator.onLine){ state.wantUp=true; save(); setNote("No connection. It will send when you are back online with the app open."); return; }
-  uploading=true; setNote("Sending...");
-  try{
-    var target;
-    try{ target=(await decryptTarget(pw)).trim(); }
-    catch(e){
-      if(e && e.message==="format") setNote("The upload link in config.js is not valid. Ask Cam.");
-      else { setNote("Wrong password."); try{ localStorage.removeItem(PWKEY); }catch(_){} }
-      return;
-    }
-    var rem=document.getElementById("pwRemember");
-    try{ if(!rem || rem.checked) localStorage.setItem(PWKEY,pw); else localStorage.removeItem(PWKEY); }catch(_){}
-    var st=nowStamp(), sig=dataSig(), filename=fname("Passport",st), blob=xlsxBlob(allSheets(st)), res;
-    var p=target.charAt(0)==="{" ? JSON.parse(target) : null;
-    if(p && p.accessKeyId){                // AWS access key: signed PUT to <prefix><file name>, one new file per upload
-      res=await s3SignedPut(p,(p.prefix==null?"passport/":p.prefix)+filename,blob);
-    } else if(p){                          // presigned POST: {"url":..., "fields":{...}} -> one new file per upload
-      var fd=new FormData();
-      Object.keys(p.fields||{}).forEach(function(k){ fd.append(k,p.fields[k]); });
-      fd.append("file",blob,filename);
-      res=await fetch(p.url,{method:"POST",body:fd});
-    } else {                               // presigned PUT URL -> always the same file name in the bucket
-      res=await fetch(target,{method:"PUT",body:blob});
-    }
-    if(res.ok){ state.lastUp=st.full; state.upSig=sig; state.wantUp=false; save(); setNote("Sent at "+st.ts.slice(11)+" as "+filename+"."); }
-    else if(res.status===403){ setNote("Storage refused the upload (403). The link has probably expired. Ask Cam for a new one."); }
-    else { setNote("Storage returned an error ("+res.status+"). Try again later."); }
-  }catch(e){
-    state.wantUp=true; save();
-    setNote(navigator.onLine ? "Could not reach storage. If this keeps happening, the storage settings may be blocking the app."
-                             : "No connection. It will send when you are back online with the app open.");
-  }finally{ uploading=false; }
-}
+var XLSX_MIME="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function rec(i){ if(!state.sq[i]) state.sq[i]={done:false,v:{}}; return state.sq[i]; }
 function noteOf(i){ var r=state.sq[i],o=[]; if(!r) return "";
@@ -626,33 +527,30 @@ async function doSaveXLSX(sheets,filename){
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },1000);
   flash("Downloaded");
 }
-/* S3 upload add-on hook (read by s3-upload.js) */
+/* S3 upload add-on hook (read by s3-upload.js): same workbook as "Download Excel (everything)" */
 window.passportExport=function(){
-  var sheets=[{name:"Bingo",aoa:bingoAOA()},{name:"Contacts",aoa:contactRows()},{name:"Meeting Notes",aoa:meetingsAOA()},{name:"Notes",aoa:notesAOA()}];
-  var buf=XLSX.write(buildWorkbook(sheets),{bookType:"xlsx",type:"array"});
-  return {blob:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),
-    filename:fname("Passport"), who:(state.meta.who||"").trim(), empty:allRows().length<=1};
+  var st=nowStamp();
+  return {blob:xlsxBlob(allSheets(st)), filename:fname("Passport",st), who:(state.meta.who||"").trim(), empty:allRows().length<=1};
 };
 document.getElementById("expAll").addEventListener("click",function(){
   var st=nowStamp(); doSaveXLSX(allSheets(st),fname("Passport",st)); });
 document.getElementById("expCon").addEventListener("click",function(){
   var st=nowStamp(); doSaveXLSX([{name:"Contacts",aoa:contactRows()}],fname("Contacts",st)); });
-document.getElementById("upload").addEventListener("click",function(){ uploadNow(); });
 document.getElementById("show").addEventListener("click",function(){
   if(!dump.hidden){ dump.hidden=true; } else { showDump(toCSV(allRows())); } });
 var clearArmed=false, clearArmTimer=null;
 document.getElementById("clear").addEventListener("click",function(){
   var btn=this;
   if(!clearArmed){
-    clearArmed=true; btn.textContent=hasUnsent()?"Tap again: changes not sent yet":"Tap again to confirm";
+    clearArmed=true; btn.textContent="Tap again to confirm";
     clearArmTimer=setTimeout(function(){ clearArmed=false; btn.textContent="Clear card"; },4000);
     return;
   }
   clearTimeout(clearArmTimer); clearArmed=false; btn.textContent="Clear card";
-  state={meta:{},sq:{},contacts:[{name:"",company:"",role:"",topic:"",said:""}],meetings:[],upSig:"",lastUp:"",wantUp:false,cel:{}};
+  state={meta:{},sq:{},contacts:[{name:"",company:"",role:"",topic:"",said:""}],meetings:[],cel:{}};
   try{ localStorage.removeItem(KEY); }catch(e){}
   Array.prototype.forEach.call(document.querySelectorAll("[data-meta]"),function(el){el.value="";});
-  dump.hidden=true; drawContacts(); drawMeetings(); paint(); updateSendNote();
+  dump.hidden=true; drawContacts(); drawMeetings(); paint();
 });
 
 var vG=document.getElementById("vGrid"), vL=document.getElementById("vList");
@@ -665,9 +563,6 @@ Array.prototype.forEach.call(document.querySelectorAll("[data-meta]"),function(e
   el.addEventListener("input",function(){ state.meta[el.id]=el.value; save(); }); });
 if(!state.contacts.length) state.contacts=[{name:"",company:"",role:"",topic:"",said:""}];
 drawContacts(); drawMeetings(); paint();
-initPw(); updateSendNote();
-window.addEventListener("online",function(){ if(state.wantUp && storedPw()) uploadNow(); });
-if(state.wantUp && navigator.onLine && storedPw()) setTimeout(function(){ uploadNow(); },1500);
 if("serviceWorker" in navigator){ window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
 })();
 </script>

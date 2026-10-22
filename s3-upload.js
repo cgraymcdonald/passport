@@ -129,7 +129,7 @@ function putBlob(url, blob, mime, onProgress) {
 
 /* ============================ UI (reuses the page's own classes) ============================ */
 function init() {
-  var anchor = document.getElementById("sendNote") || document.getElementById("send");
+  var anchor = document.getElementById("expAll"); // the row with the download buttons
   if (!anchor) return; // not the expected page
 
   var style = document.createElement("style");
@@ -141,9 +141,10 @@ function init() {
 
   var box = document.createElement("div");
   box.innerHTML =
-    '<div class="exp" style="margin-top:12px"><button class="b pri" id="s3Up" type="button">Upload Excel to S3</button></div>' +
-    '<div class="note" id="s3Note" role="status" aria-live="polite">Uploads a snapshot of your whole card as an Excel file.</div>';
-  anchor.parentNode.insertBefore(box, anchor.nextSibling);
+    '<div class="exp"><button class="b pri" id="s3Up" type="button">Upload Excel to S3</button></div>' +
+    '<div class="note" id="s3Note" role="status" aria-live="polite" style="margin-bottom:12px">Uploads a snapshot of your whole card as an Excel file.</div>';
+  var row = anchor.parentNode;
+  row.parentNode.insertBefore(box, row);
 
   var dlg = document.createElement("div");
   dlg.innerHTML =
