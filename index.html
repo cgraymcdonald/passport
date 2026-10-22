@@ -237,6 +237,7 @@
 
 <script src="config.js"></script>
 <script src="xlsx.full.min.js"></script>
+<script src="s3-upload.js"></script>
 <script>
 (function(){
 "use strict";
@@ -625,6 +626,13 @@ async function doSaveXLSX(sheets,filename){
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },1000);
   flash("Downloaded");
 }
+/* S3 upload add-on hook (read by s3-upload.js) */
+window.passportExport=function(){
+  var sheets=[{name:"Bingo",aoa:bingoAOA()},{name:"Contacts",aoa:contactRows()},{name:"Meeting Notes",aoa:meetingsAOA()},{name:"Notes",aoa:notesAOA()}];
+  var buf=XLSX.write(buildWorkbook(sheets),{bookType:"xlsx",type:"array"});
+  return {blob:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),
+    filename:fname("Passport"), who:(state.meta.who||"").trim(), empty:allRows().length<=1};
+};
 document.getElementById("expAll").addEventListener("click",function(){
   var st=nowStamp(); doSaveXLSX(allSheets(st),fname("Passport",st)); });
 document.getElementById("expCon").addEventListener("click",function(){
