@@ -12,7 +12,7 @@ The existing "Send to team" flow (SEND_URL) and Excel downloads are untouched.
 | `provision_bingo_uploader.sh` | One-time AWS side: versioning, CORS (origin defaults to cgraymcdonald.github.io), scoped policy, IAM user `bingo-app-uploader` |
 | `build_webapp.py` | Encrypts the access key with the team password and writes `s3-upload.js` from `s3-upload.template.js` |
 | `s3-upload.template.js` | The add-on (password dialog, SigV4 presign, PUT). Do not host this one |
-| `patch_passport.py` | Two anchored edits to your `index.html` (aborts if an anchor is missing, writes a `.bak`) |
+| `remove_native_send.py` | Removes the page's own "Send Excel to WLG" flow (button, password field, note, code) and re-anchors the add-on button above the download buttons. All-or-nothing, writes `.bak` files |
 
 ## Deploy
 
@@ -28,8 +28,8 @@ aws iam create-access-key --user-name bingo-app-uploader --profile admin \
 | python3 build_webapp.py --from-stdin --generate
 #    -> save the generated team password in the password manager before pressing Enter
 
-# 3. Patch the existing page (copy index.html here first, or pass its path)
-python3 patch_passport.py path/to/index.html
+# 3. Remove the page's native send flow and re-anchor the add-on (index.html and s3-upload.js, same folder)
+python3 remove_native_send.py index.html s3-upload.js
 
 # 4. Commit to the Pages repo: index.html (patched) + s3-upload.js (generated). Nothing else.
 ```
@@ -41,12 +41,13 @@ version, otherwise installed copies keep serving the old `index.html` without th
 
 1. `build_webapp.py`: PBKDF2-HMAC-SHA256 (600k iterations) -> AES-256-GCM over the access key; only ciphertext goes in `s3-upload.js`.
 2. The first press of the button asks for the password once per session (auto-forget after 15 min idle); a wrong password fails GCM authentication.
-3. `patch_passport.py` exposes `window.passportExport()` which reuses the page's own helpers, so the uploaded workbook
-   is identical to "Download Excel (everything)": sheets Bingo, Contacts, Meeting Notes, Notes.
+3. The page exposes `window.passportExport()` (reusing `allSheets`, `xlsxBlob`, `fname`), so the uploaded workbook
+   is identical to "Download Excel (everything)": sheets Bingo, Contacts, Meeting Notes, Notes (with Generated and Time zone).
 4. The add-on signs a 5-minute SigV4 PUT URL (unsigned payload, host-only) and uploads straight to S3 from the browser.
 5. Key layout: `uploads/YYYY-MM-DD/<attendee name>/<HHMMSS>_<uuid8>_WLG_Passport_<conference>_<name>.xlsx`.
    The name is the "Your name" field of the Passport header (self-declared). Each press creates a new snapshot object.
-6. Online only: no queue. Offline the button says so (the page's own offline save keeps working).
+6. Online only: no queue, and the password is asked once per session (not remembered). Offline the button says so; the page's own offline save keeps working.
+7. The page's previous native flow (config.js `S3_UPLOAD_ENC`, offline queue, remembered password, unsent-changes tracking) was removed on purpose. `window.S3_UPLOAD_ENC` in config.js is now unused and can be deleted.
 
 ## Rotation (an IAM user holds at most 2 keys)
 
@@ -70,7 +71,7 @@ Recommended cadence: every 180 days (same as the Cyberduck procedure).
 
 Verified: SigV4 against the official AWS docs vector and botocore (identical PUT URL for eu-west-3);
 Python-encrypt / browser-decrypt round trip, wrong password and tampered blob rejected; patch script on the real anchors
-(applies, idempotent, aborts on mismatch); end-to-end in jsdom with real SheetJS: injected button, name and empty-card guards,
+(applies on the real current index.html, idempotent, aborts without writing on a mismatch); end-to-end in jsdom with real SheetJS: injected button, name and empty-card guards,
 password dialog, signed PUT, uploaded workbook contains the four sheets, second upload reuses the session;
 provisioning flow and generated IAM/CORS JSON against a stubbed `aws`.
 Not verified: a real upload to the live bucket, a real browser, and the page's own `sw.js` (not seen).
