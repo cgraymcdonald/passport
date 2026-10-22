@@ -1,5 +1,5 @@
 // Saves the app on the phone so it opens offline. Network first, so updates arrive when online.
-var CACHE = "passport-v1";
+var CACHE = "passport-v2";
 var FILES = ["./", "./index.html", "./config.js", "./xlsx.full.min.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passport upload link encryptor</title>
+<style>
+ :root{--ink:#111;--muted:#666;--line:#ccc;--bg:#fff;--blue:#5374CF;--warn:#b5482a;color-scheme:light}
+ @media (prefers-color-scheme: dark){:root{--ink:#eee;--muted:#aaa;--line:#444;--bg:#151515;--blue:#8aa3ea;--warn:#ff9a7a;color-scheme:dark}}
+ body{font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:var(--bg);max-width:720px;margin:0 auto;padding:24px 16px}
+ label{display:block;font-weight:600;margin:14px 0 4px} textarea,input{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+ textarea{min-height:110px} button{margin-top:14px;padding:9px 16px;border-radius:8px;border:0;background:var(--blue);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+ .note{color:var(--muted);font-size:13.5px} .warn{color:var(--warn);font-weight:600} #out{min-height:80px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+</style></head><body>
+<h1>Passport upload link encryptor</h1>
+<p class="note">Everything happens in this browser. Nothing you type here is sent anywhere.</p>
+<label for="src">What to encrypt: AWS access key JSON, presigned POST JSON, or a pre-signed PUT URL</label>
+<p class="note">Access key template: {"accessKeyId":"AKIA...","secretAccessKey":"...","region":"eu-west-3","bucket":"your-bucket","prefix":"passport/"}</p>
+<textarea id="src" spellcheck="false"></textarea>
+<div id="kind" class="note"></div>
+<label for="p1">Team password (use a long passphrase, e.g. four random words)</label><input id="p1" type="password" autocomplete="new-password">
+<label for="p2">Repeat password</label><input id="p2" type="password" autocomplete="new-password">
+<button id="go" type="button">Encrypt</button>
+<label for="out">Paste this into config.js between the quotes of window.S3_UPLOAD_ENC</label>
+<textarea id="out" readonly></textarea>
+<div id="msg" class="note"></div>
+<script>
+const ITER=310000;
+const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a)));
+const src=document.getElementById('src'), kind=document.getElementById('kind'), msg=document.getElementById('msg');
+function check(){
+  const v=src.value.trim(); kind.className='note';
+  if(!v){ kind.textContent=''; return null; }
+  if(v.startsWith('{')){
+    try{ const p=JSON.parse(v);
+      if(p.accessKeyId){
+        const miss=['accessKeyId','secretAccessKey','region','bucket'].filter(k=>!p[k]);
+        if(miss.length){ kind.className='warn'; kind.textContent='Access key JSON is missing: '+miss.join(', '); return 'bad'; }
+        kind.textContent='AWS access key detected: every upload becomes its own file under "'+(p.prefix==null?'passport/':p.prefix)+'". Make sure this key can only upload (s3:PutObject) to that folder.';
+        return 'key'; }
+      if(!p.url||!p.fields) throw 0;
+      kind.textContent='Presigned POST detected: every upload becomes its own file. Good for a team.'; return 'post'; }
+    catch(e){ kind.className='warn'; kind.textContent='Not recognised. Use {"accessKeyId":...,"secretAccessKey":...,"region":...,"bucket":...} or presigned POST JSON.'; return 'bad'; }
+  }
+  if(/^https:\/\//.test(v)){
+    kind.className='warn';
+    kind.textContent='Pre-signed PUT URL detected: every upload goes to the SAME file and replaces the previous one, including other people\u2019s. Fine for testing with one person; use a presigned POST for the team.';
+    return 'put';
+  }
+  kind.className='warn'; kind.textContent='This does not look like an https URL or presigned POST JSON.'; return 'bad';
+}
+src.addEventListener('input',check);
+document.getElementById('go').addEventListener('click',async()=>{
+  msg.textContent=''; const k=check(), p1=document.getElementById('p1').value, p2=document.getElementById('p2').value;
+  if(!k||k==='bad'){ msg.textContent='Fix the upload link first.'; return; }
+  if(p1.length<12){ msg.textContent='Use at least 12 characters for the password.'; return; }
+  if(p1!==p2){ msg.textContent='The two passwords do not match.'; return; }
+  if(!(window.crypto&&crypto.subtle)){ msg.textContent='This browser blocks encryption here. Open this page from https (for example your GitHub Pages site) or in Chrome.'; return; }
+  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(p1),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(src.value.trim()));
+  const out='v1.'+b64(salt)+'.'+b64(iv)+'.'+b64(ct);
+  const back=new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct));
+  document.getElementById('out').value=out;
+  msg.textContent=back===src.value.trim()?'Encrypted and checked: it decrypts back correctly with this password.':'Check failed, do not use this output.';
+});
+</script></body></html>
